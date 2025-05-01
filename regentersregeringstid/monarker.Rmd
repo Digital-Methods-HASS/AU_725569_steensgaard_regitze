@@ -1,0 +1,187 @@
+---
+title: "Analyse af danske regenters regeringstid"
+author: "Regitze Steensgaard"
+date: "`r format(Sys.time(), '%d %B %Y, %H:%M:%S')`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false 
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The task here is to load your Danish Monarchs csv into R using the `tidyverse` toolkit, calculate and explore the kings' duration of reign with pipes `%>%` in `dplyr` and plot it over time.
+
+Make sure to first create an  `.Rproj` workspace with a `data/` folder where you place either your own dataset or the provided `kings.csv` dataset. 
+
+1. Look at the dataset that are you loading and check what its columns are separated by? (hint: open it in plain text editor to see)
+
+List what is the
+
+separator:_______  
+
+2. Create a `kings` object in R with the different functions below and inspect the different outputs.
+-  `read.csv()`
+-  `read_csv()`
+-  `read.csv2()` 
+-  `read_csv2()`
+```{r indhenter_data, include=FALSE}
+
+library(tidyverse)
+kings1 <- read.csv("data/kongerækken-kopi.csv")
+
+kings2 <- read_csv("data/kongerækken-kopi.csv")
+
+kings3 <- read.csv2("data/kongerækken-kopi.csv")
+
+kings4 <- read_csv2( "data/kongerækken-kopi.csv")
+
+#Answer: 
+# 1. Which of these functions is a `tidyverse` function? Read data with it below into a `kings` object
+ # Tidyverse funktion er der, hvor man bruger underscore:  "read_csv" og "read_csv2".
+  
+```
+
+  
+```{r kigger_paa_data, include=FALSE}
+
+library(tidyverse)
+kings <- read_csv("data/kongerækken-kopi.csv")
+
+class(kings)
+
+ncol(kings)
+
+glimpse(kings)
+# 2. What is the result of running `class()` on the `kings` object created with a tidyverse function.
+  #Ved at køre "class()" får jeg svaret: "spec_tbl_df" "tbl_df" "tbl" "data.frame". Dette viser, at mit datasæt er i tibble-format, som er en version af en dataframe. Det medvirker til, at datatyperne bevares og aflæses nemmere. Fx forstår R, at mit data er numerisk, og tibble-formatet viser også tydeligt ens variabler og deres værdier, fx om det er numerisk eller karakter.
+  
+# 3. How many columns does the object have when created with these different functions?
+  #Ved at køre funktion ncol() kan jeg se, at jeg har 5 kolonner i mit datasæt.
+  
+# 4. Show the dataset so that we can see how R interprets each column
+  #Se outputtet nedenfor, hvor funktionen glimpse() er kørt. Ved at køre den kan jeg se, hvordan R forstår/aflæser hver kolonne
+
+# ændre navnet på datasættet til konge
+konge <- read_csv("data/kongerækken-kopi.csv")
+
+```
+
+Calculate the duration of reign for all the kings in your table
+You can calculate the duration of reign in years with `mutate` function by subtracting the equivalents of your `startReign` from `endReign` columns and writing the result to a new column called `duration`. But first you need to check a few things:
+
+* Is your data messy? Fix it before re-importing to R
+* Do your start and end of reign columns contain NAs? Choose the right strategy to deal with them: `na.omit()`, `na.rm=TRUE`, `!is.na()`
+
+
+Create a new column called  `duration` in the kings dataset, utilizing the `mutate()` function from tidyverse. Check with your group to brainstorm the options.
+
+
+```{r regeringstid, include=FALSE}
+# Filtrer alle NA
+kongerække_uden_na <- konge %>% 
+  filter(!is.na(sidste_regeringsår))
+# med mutate udregnes regeringstiden for hver regent ud fra to kolonner i datasættet
+konge_duration <- kongerække_uden_na %>% 
+  mutate(duration=sidste_regeringsår - første_regeringsår)
+  
+#Svar: Jeg har gennem funktionen fundet ud af, hvad regeringstiden for hver enkelt regent. Dette ses i den ny oprettet kolonne kaldet "duration".
+
+```
+
+Calculate the average duration of reign for all rulers
+Do you remember how to calculate an average on a vector object? If not, review the last two lessons and remember that a column is basically a vector. So you need to subset your `kings` dataset to the `duration` column. If you subset it as a vector you can calculate average on it with `mean()` base-R function. If you subset it as a tibble, you can calculate average on it with `summarize()` tidyverse function. Try both ways!
+
+* You first need to know how to select the relevant `duration` column. What are your options?
+* Is your selected `duration` column a tibble or a vector? The `mean()` function can only be run on a vector. The `summarize()` function works on a tibble.
+* Are you getting an error that there are characters in your column? Coerce your data to numbers with `as.numeric()`.
+* Remember to handle NAs: `mean(X, na.rm=TRUE)`
+
+
+```{r gennemsnit_af_regeringstiden, include=FALSE}
+# udregner den gennemsnitlige regeringstid med mean.
+kongers_gennemsnitlig_regeringstid <- mean(konge_duration$duration)
+
+# mean() kan bruges på en vektor, der er typen numerisk. Hvor summarize() kan bruges på en tibble. 
+
+# Svar: Jeg har gennem funktion fundet ud af, at den gennemsnitlige regeringstid for regenter er 20 år. Dette bliver vist som værdien kongers_gennemsnitlig_regeringstid
+
+```
+
+How many and which kings enjoyed a longer-than-average duration of reign?
+
+You have calculated the average duration above. Use it now to `filter()` the `duration` column in  `kings` dataset. Display the result and also  count the resulting rows with `count()`
+
+
+```{r over_gennemsnittet, include=FALSE}
+# Her filtres alle de værdier i kolonnen "kongers gennemsnitlige regeringstid" som er over gennemsnittet med funktionen filter.
+længere_regeringsperiode <- konge_duration %>% 
+  filter(duration>kongers_gennemsnitlig_regeringstid)
+  
+# dette viser resultatet
+count(længere_regeringsperiode)
+
+#Svar: Via funktionen kan jeg se, at der i alt er 25 regenter, som har regeret over gennemsnittet.
+
+```
+
+
+How many days did the three longest-ruling monarchs rule? 
+
+* Sort kings by reign `duration` in the descending order. Select the three longest-ruling monarchs with the `slice()` function
+* Use `mutate()` to create `Days` column where you calculate the total number of days they ruled
+* BONUS: consider the transition year (with 366 days) in your calculation!
+
+```{r tre_laengste_regeringstid, include=FALSE}
+# udregner de regenter som har regeret i de tre længste tider. 
+# select udvælger hvilke kolonner, som udregning skal baseres på.
+# arrange(desc) gør at resultatet kommer i faldende rækkefølge, derfor vises den med længst regeringstid først.
+# slice_max og n=3 udvælger regenterne med top tre længst regeringstid
+længste_regeringsperiode <- konge_duration %>% 
+  select(duration, regent) %>% 
+  arrange(desc(duration)) %>% 
+  slice_max(order_by=duration, n=3)
+
+# med mutate udregnes regenternes regeringstid i dage i en ny kolonne
+regeringstid_i_dage<- længste_regeringsperiode %>% 
+  mutate(regeringstid_i_dage=duration*365)
+
+# her vises 
+regeringstid_i_dage
+
+# Svar: Der er fire regenter, som har regeret i de tre længste perioder. Deres perioder omregnet til dage giver, at de har siddet der i henholdsvis 21900 dage, 18980 dage og 15695 dage:
+
+```
+
+
+## Graf over regenters regeringstid 
+
+What is the long-term trend in the duration of reign among Danish monarchs? How does it relate to the historical violence trends ? 
+
+* Try to plot the duration of reign column in `ggplot` with `geom_point()` and  `geom_smooth()`
+* In order to peg the duration (which is between 1-99) somewhere to the x axis with individual centuries, I recommend creating a new column `midyear` by adding to `startYear` the product of `endYear` minus the `startYear` divided by two (`startYear + (endYear-startYear)/2`).
+* Now you can plot the kings dataset, plotting `midyear` along the x axis and `duration` along y axis
+* BONUS: add a title, nice axis labels to the plot and make the theme B&W and font bigger to make it nice and legible!
+
+```{r graf_over_regeringstid, eval = TRUE}
+# udregner først medianen af hver regents regeringstid
+grafen_over_konger <- konge_duration %>% 
+  mutate(midyear = (første_regeringsår+sidste_regeringsår)/ 2)
+
+#laver grafen
+grafen_over_konger %>% 
+  ggplot( aes(x=midyear, y=duration))+
+  geom_point()+
+  geom_smooth()+
+  labs(title= "Oversigt over regenters regerinstid")+
+  xlab("Medianen af årstallet af regenternes regeringsperiode")+
+  ylab("Total regeringstid for hver regent")
+  
+
+# Jeg kan ud fra figuren tolke, at der generelt er færre regenter i slutningen af 1500-tallet og frem til i dag. Dermed regerer den siddende regent i længere tid, jo længere op i tiden man kommer. Dette kan ses i den historiske kontekst om reformationen og enevælden, hvor alt magt lå hos kongen. Efter protestantismens indtog fik kongen flere poster ude i samfundet, der blev etableret regler, struktur og orden via hans magt. Under enevælden blev magten til dels fjernet fra adelen, og Kongeloven blev indført. Dermed var arvefølgen nu fastlåst og sikret. Dette var dog modsat i årene 900-1200, hvor kurven også viser en tydelig samling af regenter tæt på hinanden. Dette er regenter, som har regeret i forholdsvis samme tidsperiode. I perioden var den kongelige arvefølge ikke etableret, mange grene af slægtninge til kongen ville have magt, og man kunne vinde magten i kamp, og kongen blev til tider myrdet. Man kan derfor tolke, at der i takt med magtens centralisering skete et opbrud med den forhenværende vold tendens. Samfundet fik flere regler og mere struktur, og de rammer, som det skaber, gør folket og magten mere civiliseret med tiden.
+
+```
