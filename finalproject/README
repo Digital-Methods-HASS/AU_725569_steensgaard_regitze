@@ -1,6 +1,6 @@
 README
 Denne mappe dækker over et projekt som arbejder med kausaliteten mellem landbrugets udvikling med fokus på svinehold og jernbanens udbredelse i Danmark. 
 Mappen indeholder to csv filer eksport_af_flaesk.csv og data_svin_i_dk_jernbaner.csv. 
-data_svin_i_dk_jernbaner.csv indeholder data omkring antal af svin og jernbanens længde samt eksport af total mængde flæsk og mængde eksporteret flæsk til England.
-eksport_af_flaesk.csv indeholder data over eksport af flæsk til flere lande.
+data_svin_i_dk_jernbaner.csv indeholder data omkring antal af svin, som er antal svin pr. amt og for kun København stad, samt jernbanens længde i kilometer, og eksport af total mængde flæsk og mængde eksporteret flæsk i pund til England.
+eksport_af_flaesk.csv indeholder data over eksport af flæsk til flere lande målt i pund.
 Opgaven er licenseret under CC BY-SA 4.0 
