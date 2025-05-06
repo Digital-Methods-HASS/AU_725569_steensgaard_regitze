@@ -1,0 +1,303 @@
+---
+title: "Sentiment Analysis of Donald Trump's Inauguration Speech"
+author: "Regitze Steensgaard"
+date: "`r format(Sys.time(), '%d %B %Y, %H:%M:%S')`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false 
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+
+library(tidyverse)
+library(here)
+
+# for textmining 
+library(pdftools) 
+library(tidytext)
+library(textdata) 
+library(ggwordcloud)
+
+```
+
+
+```{r get-document, include=FALSE}
+#  Indsætter Donald Trumps' tale:
+
+trump_path <- here("data","trump_tale.pdf")
+trump_text <- pdf_text(trump_path) # her loader vi pdf ind
+
+```
+
+ 
+
+```{r split-lines, include=FALSE}
+
+# Siderne splittes op, og jeg konverterer Trumps tale indtil et dataframe. Først bliver den en kolonne, men jeg vil have den splittet op så hver linje er i sin egen række. Derfor anvender jeg "mutate", som laver en ny kolonne, hvor alle linjer kan indgå. \n deler linjerne op og alle linjer får derved deres egen række. 
+
+trump_df <- data.frame(trump_text) %>% 
+  mutate(text_full = str_split(trump_text, pattern = '\n')) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full)) 
+
+```
+ 
+
+
+
+```{r tokenize, include=FALSE}
+
+# Datasættet gives en ny kolonne kaldet "word". Alle ord bliver splittet og separeret op deres egen linje/række i en ny kolonne.
+
+trump_tokens <- trump_df %>% 
+  unnest_tokens(word, text_full)
+
+
+```
+
+
+```{r count-words, include=FALSE}
+
+# Jeg ser på antallet af ord unden anvendelsen af en stopordsliste. Det ord som optræder først, er det ord, som er flest gange i teksten.
+
+trump_wc <- trump_tokens %>% 
+  count(word) %>% 
+  arrange(-n)
+
+trump_wc
+
+```
+
+
+
+```{r stopwords, include=FALSE}
+
+# Jeg anvender "`tidyr::anti_join()`:" som stopordsliste: 
+
+trump_stop <- trump_tokens %>% 
+  anti_join(stop_words) %>% 
+  select(-trump_text)
+
+trump_stop
+
+```
+
+
+```{r count-words after the stoplist, include=FALSE}
+# Tæller ordene efter brugen af stopordslisten: 
+trump_swc <- trump_stop %>% 
+  count(word) %>% 
+  arrange(-n)
+
+trump_swc
+```
+
+
+```{r removing-numbers, include=FALSE}
+# Fjerner tal fra teksten
+# Jeg anvender dataframen med kolonnen "word", hvor stopordslisten er anvendt. 
+# Vektoren er inden fjernelsen af tallene en dobbelt vektorer. Jeg vil derfor konvertere vektoren til en numerisk vektor for derefter at filtre tal væk. Det gøres med "as.numeric". "filter()" gør at tal fjernes, da den kun indeholder data, som ikke kan konverteres til tal, altså ord. 
+
+trump_no_numeric <- trump_stop %>% 
+  filter(is.na(as.numeric(word))) # is.na koden er en anden måde kun at filtrere ord på.
+
+trump_no_numeric
+
+```
+
+
+
+```{r wordcloud-prep, include=FALSE}
+
+# Jeg vil finde de mest unikke ord i datasættet
+length(unique(trump_no_numeric$word)) 
+
+#Legnth viser at der findes 705 unikke ord i datasættet. 
+
+# Jeg vil kun se på top 100 mest unikke ord, og jeg anvender derfor filter for at finde de mest hyppige. 
+ 
+trump_top100 <- trump_no_numeric %>% 
+  count(word) %>% 
+  arrange(-n) %>% 
+  head(100) # her finder man de første 100
+
+trump_top100
+
+```
+
+
+```{r wordcloud, include=FALSE}
+# Jeg laver nu en ordsky som viser de mest unikke ord i talen:
+
+trump_cloud <- ggplot(data = trump_top100, aes(label = word)) +
+  geom_text_wordcloud() +
+  theme_minimal()
+
+trump_cloud
+
+```
+
+## Making the wordcloud readable 
+
+```{r wordcloud-pro, eval=TRUE}
+# Jeg gør min ordsky mere læselig vedhjælp af ggplots funktioner. Derved farves de ord, som anvendes mest.
+ggplot(data = trump_top100, aes(label = word, size = n)) +
+  geom_text_wordcloud_area(aes(color = n), shape = "diamond") +
+  scale_size_area(max_size = 12) +
+  scale_color_gradientn(colors = c("darkgreen","blue","red")) +
+  theme_minimal()
+```
+
+
+## Sentiment analysis using "afinn" and "nrc"
+
+```{r bind-afinn, include=FALSE}
+# afinn
+# Jeg anvender ordlisten, kolonnen "trump_stop", som er filtret med stopordslisten Jeg bruger "inner_join" for at matche ordene med afinn leksikonet.
+
+trump_afinn <- trump_stop %>% 
+  inner_join(get_sentiments("afinn"))
+
+```
+
+## Afinn and counting how many words there are in each ranking.
+```{r count-afinn, eval=TRUE}
+# Jeg udregner antallet af ord i hver ranking
+trump_afinn_hist <- trump_afinn %>% 
+  count(value)
+
+# Indsætter værdierne i et søjlediagram 
+ggplot(data = trump_afinn_hist, aes(x = value, y = n)) +
+  geom_col(aes(fill = value)) +
+  ylab("Quantaty")+
+  theme_bw()
+```
+
+
+```{r afinn-2, include=FALSE}
+
+# Ser på ordene, som har værdien 2, og udvælgelsen af kun unikke ord med "distinct"
+
+trump_afinn2 <- trump_afinn %>% 
+  filter(value == 2)
+
+trump_afinn2 %>% 
+  distinct(word)
+```
+
+
+```{r afinn-2-more, include=FALSE}
+# Et diagram over hvilke ord som optræder på ranking "2" i afinn analysen:
+# Udvælger kun unikke ord, som optræder på ranking "2"
+unique(trump_afinn2$word)
+
+# For at lave et diagram over ordene skal de tælles. Derefter sorterer jeg ordene fra højest til lavest. Jeg kalder kolonnen for hyppigheden af hvert ord for "n"
+trump_afinn2_n <- trump_afinn2 %>% 
+  count(word, sort = TRUE) %>% 
+  mutate(word = fct_reorder(factor(word), n))
+
+# Jeg sætter min udregnet værdier ind i et søjlediagram
+ggplot(data = trump_afinn2_n, aes(x = word, y = n)) +
+  geom_col() +
+  coord_flip() +
+  theme_bw()
+
+```
+
+
+
+```{r summarize-afinn, include=FALSE}
+# Jeg udregner medianen og gennemsnittet
+trump_summary <- trump_afinn %>% 
+  summarize(
+    mean_score = mean(value),
+    median_score = median(value))
+# Dette kan give et overordnet syn på værdierne, så man kan få en ide om teksten er mere negativ eller positiv ladet
+trump_summary
+```
+
+## NRC
+
+```{r bind-bing the words, include=FALSE}
+# Jeg matcher hvert ord op til de følelser som NCR-leksikonet indeholder
+trump_nrc <- trump_stop %>% 
+  inner_join(get_sentiments("nrc"))
+
+```
+
+
+
+```{r check-exclusions, include=FALSE}
+# Jeg vil finde de ord, som ikke indgår i NRC analysen, altså de ord som ikke er "unikke"
+# Jeg laver et nyt datasæt og får en kolone, hvor rækkerne består af de ord, som er fjernet fra forrige kodning
+trump_exclude <- trump_stop %>% 
+  anti_join(get_sentiments("nrc"))
+view(trump_exclude)
+
+# Jeg laver en udregning for at finde de ord, som er blevet frasorteret flest gange
+trump_exclude_n <- trump_exclude %>% 
+  count(word, sort = TRUE)
+
+head(trump_exclude_n)
+```
+
+## Counts of words in each feeling-category
+```{r count-bing, eval=TRUE}
+# Jeg udregner, hvor mange ord, som optræder i hver kategori:
+trump_nrc_n <- trump_nrc %>% 
+  count(sentiment, sort = TRUE)
+
+# Jeg laver et diagram over ordene i hver følelses-kategori:
+
+ggplot(data = trump_nrc_n, aes(x = sentiment, y = n)) +
+  geom_col(aes(fill = sentiment))+
+  ylab("Quantaty")+
+  theme_bw()
+```
+
+## A plot over each emotions and words
+```{r count-nrc, eval=TRUE}
+
+# jeg gruppere ordene efter følelsesregisteret som er lavet i NRC
+trump_nrc_n5 <- trump_nrc %>% 
+  count(word,sentiment, sort = TRUE) %>% 
+  group_by(sentiment) %>% 
+  top_n(5) %>% 
+  ungroup()
+
+# jeg laver diagrammet 
+trump_nrc_gg <- ggplot(data = trump_nrc_n5, aes(x = reorder(word,n), y = n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, ncol = 2, scales = "free") +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = "Word", y = "count")
+
+# dette vser diagrammet
+trump_nrc_gg
+
+# denne kode gemmer diagrammet
+ggsave(plot = trump_nrc_gg, 
+       here("figures","trump_nrc_sentiment.png"), 
+       height = 8, 
+       width = 5)
+
+# denne graf viser de 5 mest brugte ord indenfor hver "følelse"/sentiment
+
+```
+
+
+## Final Question
+Ved at lave en sentimentanalyse af Donald Trumps tale i NRC får jeg en varieret tilgang til at analysere talens positiv/negativ ladning i forhold til ordvalget. NRC-analysen giver et indblik i, at ord kan have forskellige følelser tilkoblet, og de kan være kategoriseret i flere følelser. Figur 1 viser, at “vote” er registreret ved i alt 8 følelser ud af 10. Det er interessant i forhold til talens tendens og ophavssituation. Trump afholder talen efter, at han er blevet indsat som præsident. “Vote” har dermed en central rolle i forhold til, at han er blevet valgt, og han sætter fokus på folket, som har valgt ham. Det er bemærkelsesværdigt, at “vote” får fuld score i “surprise” og “anger”. I forhold til “vote” ved “surprise” refererer det til, at Trump er overrasket over de stemmer, som han har indhentet. Det er bl.a. fra  etniciteter, som han ikke måske regnede med ville stemme på ham. Når “vote” får et højt match ved “anger”, kan det skildre Trumps tilhørsforhold til dem, som ikke stemte på ham. Men det afspejler også, at han tager vælgernes parti og udtrykker vrede over den uretfærdige behandling, som nogle grupper har fået, og som nu støtter ham. Sentimentanalysen giver et overblik over Trumps politiske holdninger og reaktioner på at blive præsident. Ulempen ved en sentimentanalyse er, at den ikke viser konteksten af ord og hvordan de optræder i en tekst. Fx bliver “immediately” matchet med “anticipation”, det match kræver, at man forstår teksten og konteksten for at kunne forklare, hvorfor det sker. I den sammenhæng skal det forstås som, at Trump har forventninger og agendaer, som skal ske med det samme.
+
+Credit: NRC: Crowdsourcing a Word-Emotion Association Lexicon, Saif Mohammad and Peter Turney, Computational Intelligence, 29 (3), 436-465, 2013.
+
+
+
+
